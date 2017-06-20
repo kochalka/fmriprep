@@ -43,7 +43,7 @@ def init_anat_preproc_wf(skull_strip_ants, output_spaces, template, debug, frees
     outputnode = pe.Node(niu.IdentityInterface(
         fields=['t1_preproc', 't1_brain', 't1_mask', 't1_seg', 't1_tpms',
                 't1_2_mni', 't1_2_mni_forward_transform', 't1_2_mni_reverse_transform',
-                'mni_mask', 'mni_tpms',
+                'mni_mask', 'mni_seg', 'mni_tpms',
                 'subjects_dir', 'subject_id', 'fs_2_t1_transform', 'surfaces']),
         name='outputnode')
 
@@ -97,6 +97,12 @@ def init_anat_preproc_wf(skull_strip_ants, output_spaces, template, debug, frees
         name='mni_mask'
     )
 
+    mni_seg = pe.Node(
+        ants.ApplyTransforms(dimension=3, default_value=0, float=True,
+                             interpolation='NearestNeighbor'),
+        name='mni_seg'
+    )
+
     mni_tpms = pe.MapNode(
         ants.ApplyTransforms(dimension=3, default_value=0, float=True,
                              interpolation='Linear'),
@@ -107,7 +113,7 @@ def init_anat_preproc_wf(skull_strip_ants, output_spaces, template, debug, frees
     workflow.connect([
         (inputnode, t1_conform, [('t1w', 't1w_list')]),
         (t1_conform, t1_merge, [('t1w_list', 'in_files'),
-                               (('t1w_list', add_suffix, '_template'), 'out_file')]),
+                                (('t1w_list', add_suffix, '_template'), 'out_file')]),
         (t1_merge, skullstrip_wf, [('out_file', 'inputnode.in_file')]),
         (skullstrip_wf, t1_seg, [('outputnode.out_file', 'in_files')]),
         (skullstrip_wf, outputnode, [('outputnode.bias_corrected', 't1_preproc'),
@@ -122,6 +128,7 @@ def init_anat_preproc_wf(skull_strip_ants, output_spaces, template, debug, frees
 
         t1_2_mni.inputs.template = template_str
         mni_mask.inputs.reference_image = ref_img
+        mni_seg.inputs.reference_image = ref_img
         mni_tpms.inputs.reference_image = ref_img
 
         workflow.connect([
@@ -129,6 +136,8 @@ def init_anat_preproc_wf(skull_strip_ants, output_spaces, template, debug, frees
             (skullstrip_wf, t1_2_mni, [('outputnode.out_mask', 'moving_mask')]),
             (skullstrip_wf, mni_mask, [('outputnode.out_mask', 'input_image')]),
             (t1_2_mni, mni_mask, [('composite_transform', 'transforms')]),
+            (t1_seg, mni_seg, [('tissue_class_map', 'input_image')]),
+            (t1_2_mni, mni_seg, [('composite_transform', 'transforms')]),
             (t1_seg, mni_tpms, [('probability_maps', 'input_image')]),
             (t1_2_mni, mni_tpms, [('composite_transform', 'transforms')]),
             (t1_2_mni, outputnode, [
@@ -136,6 +145,7 @@ def init_anat_preproc_wf(skull_strip_ants, output_spaces, template, debug, frees
                 ('composite_transform', 't1_2_mni_forward_transform'),
                 ('inverse_composite_transform', 't1_2_mni_reverse_transform')]),
             (mni_mask, outputnode, [('output_image', 'mni_mask')]),
+            (mni_seg, outputnode, [('output_image', 'mni_seg')]),
             (mni_tpms, outputnode, [('output_image', 'mni_tpms')]),
         ])
 
@@ -194,9 +204,11 @@ def init_anat_preproc_wf(skull_strip_ants, output_spaces, template, debug, frees
             ('t1_preproc', 'inputnode.t1_preproc'),
             ('t1_mask', 'inputnode.t1_mask'),
             ('t1_seg', 'inputnode.t1_seg'),
+            ('t1_tpms', 'inputnode.t1_tpms'),
             ('t1_2_mni_forward_transform', 'inputnode.t1_2_mni_forward_transform'),
             ('t1_2_mni', 'inputnode.t1_2_mni'),
             ('mni_mask', 'inputnode.mni_mask'),
+            ('mni_seg', 'inputnode.mni_seg'),
             ('mni_tpms', 'inputnode.mni_tpms'),
             ('surfaces', 'inputnode.surfaces'),
             ]),
@@ -431,7 +443,7 @@ def init_autorecon_resume_wf(omp_nthreads, name='autorecon_resume_wf'):
             flags=['-noparcstats', '-nocortparc2', '-noparcstats2',
                    '-nocortparc3', '-noparcstats3', '-nopctsurfcon',
                    '-nohyporelabel', '-noaparc2aseg', '-noapas2aseg',
-                   '-nosegstats', '-nowmparc','-nobalabels'],
+                   '-nosegstats', '-nowmparc', '-nobalabels'],
             openmp=omp_nthreads),
         iterfield='hemi', n_procs=omp_nthreads,
         name='autorecon_surfs')
@@ -460,7 +472,7 @@ def init_autorecon_resume_wf(omp_nthreads, name='autorecon_resume_wf'):
         (inputnode, autorecon2_vol, [('subjects_dir', 'subjects_dir'),
                                      ('subject_id', 'subject_id')]),
         (autorecon2_vol, autorecon_surfs, [('subjects_dir', 'subjects_dir'),
-                                            ('subject_id', 'subject_id')]),
+                                           ('subject_id', 'subject_id')]),
         (autorecon_surfs, autorecon3, [(('subjects_dir', _dedup), 'subjects_dir'),
                                        (('subject_id', _dedup), 'subject_id')]),
         (autorecon3, outputnode, [(('subjects_dir', _dedup), 'subjects_dir'),
@@ -622,22 +634,28 @@ def init_anat_derivatives_wf(output_dir, output_spaces, template, freesurfer,
 
     inputnode = pe.Node(
         niu.IdentityInterface(
-            fields=['source_file', 't1_preproc', 't1_mask', 't1_seg',
+            fields=['source_file', 't1_preproc', 't1_mask', 't1_seg', 't1_tpms',
                     't1_2_mni_forward_transform', 't1_2_mni', 'mni_mask',
-                    'mni_tpms', 'surfaces']),
+                    'mni_seg', 'mni_tpms', 'surfaces']),
         name='inputnode')
 
     ds_t1_preproc = pe.Node(
         DerivativesDataSink(base_directory=output_dir, suffix='preproc'),
         name='ds_t1_preproc', run_without_submitting=True)
 
+    ds_t1_mask = pe.Node(
+        DerivativesDataSink(base_directory=output_dir, suffix='brainmask'),
+        name='ds_t1_mask', run_without_submitting=True)
+
     ds_t1_seg = pe.Node(
         DerivativesDataSink(base_directory=output_dir, suffix='dtissue'),
         name='ds_t1_seg', run_without_submitting=True)
 
-    ds_t1_mask = pe.Node(
-        DerivativesDataSink(base_directory=output_dir, suffix='brainmask'),
-        name='ds_t1_mask', run_without_submitting=True)
+    ds_t1_tpms = pe.Node(
+        DerivativesDataSink(base_directory=output_dir,
+                            suffix='class-{extra_value}_probtissue'),
+        name='ds_t1_tpms', run_without_submitting=True)
+    ds_t1_tpms.inputs.extra_values = ['CSF', 'GM', 'WM']
 
     suffix_fmt = 'space-{}_{}'.format
     ds_t1_mni = pe.Node(
@@ -649,6 +667,11 @@ def init_anat_derivatives_wf(output_dir, output_spaces, template, freesurfer,
         DerivativesDataSink(base_directory=output_dir,
                             suffix=suffix_fmt(template, 'brainmask')),
         name='ds_mni_mask', run_without_submitting=True)
+
+    ds_mni_seg = pe.Node(
+        DerivativesDataSink(base_directory=output_dir,
+                            suffix=suffix_fmt(template, 'dtissue')),
+        name='ds_mni_seg', run_without_submitting=True)
 
     ds_mni_tpms = pe.Node(
         DerivativesDataSink(base_directory=output_dir,
@@ -683,6 +706,8 @@ def init_anat_derivatives_wf(output_dir, output_spaces, template, freesurfer,
                                  ('t1_mask', 'in_file')]),
         (inputnode, ds_t1_seg, [('source_file', 'source_file'),
                                 ('t1_seg', 'in_file')]),
+        (inputnode, ds_t1_tpms, [('source_file', 'source_file'),
+                                 ('t1_tpms', 'in_file')]),
         ])
 
     if freesurfer:
@@ -700,6 +725,8 @@ def init_anat_derivatives_wf(output_dir, output_spaces, template, freesurfer,
                                     ('t1_2_mni', 'in_file')]),
             (inputnode, ds_mni_mask, [('source_file', 'source_file'),
                                       ('mni_mask', 'in_file')]),
+            (inputnode, ds_mni_seg, [('source_file', 'source_file'),
+                                     ('mni_seg', 'in_file')]),
             (inputnode, ds_mni_tpms, [('source_file', 'source_file'),
                                       ('mni_tpms', 'in_file')]),
             ])
