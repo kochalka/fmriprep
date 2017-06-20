@@ -27,7 +27,7 @@ from bids.grabbids import BIDSLayout
 
 def init_fmriprep_wf(subject_list, task_id, run_uuid,
                      ignore, debug, anat_only, omp_nthreads,
-                     skull_strip_ants, reportlets_dir, output_dir, bids_dir,
+                     skull_strip_ants, skull_strip_template, reportlets_dir, output_dir, bids_dir,
                      freesurfer, output_spaces, template, hires,
                      bold2t1w_dof, fmap_bspline, fmap_demean, output_grid_ref):
     fmriprep_wf = pe.Workflow(name='fmriprep_wf')

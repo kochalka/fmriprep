@@ -69,7 +69,8 @@ def init_anat_preproc_wf(skull_strip_ants, output_spaces, template, debug, frees
     if skull_strip_ants:
         skullstrip_wf = init_skullstrip_ants_wf(name='skullstrip_ants_wf',
                                                 debug=debug,
-                                                omp_nthreads=omp_nthreads)
+                                                omp_nthreads=omp_nthreads,
+                                                skull_strip_template=skull_strip_template)
 
     # 4. Segmentation
     t1_seg = pe.Node(FASTRPT(generate_report=True, segments=True,
@@ -204,8 +205,30 @@ def init_anat_preproc_wf(skull_strip_ants, output_spaces, template, debug, frees
     return workflow
 
 
-def init_skullstrip_ants_wf(debug, omp_nthreads, name='skullstrip_ants_wf'):
-    from niworkflows.data import get_ants_oasis_template_ras
+def init_skullstrip_ants_wf(debug, omp_nthreads, skull_strip_template, name='skullstrip_ants_wf'):
+    if skull_strip_template == 'oasis':
+        from niworkflows.data import get_ants_oasis_template_ras
+        brain_template = op.join(
+            get_ants_oasis_template_ras(),
+            'T_template0.nii.gz'
+        )
+        
+        brain_probability_mask = op.join(
+            get_ants_oasis_template_ras(),
+            'T_template0_BrainCerebellumProbabilityMask.nii.gz'
+        )
+
+        extraction_registration_mask = op.join(
+           get_ants_oasis_template_ras(),
+            'T_template0_BrainCerebellumRegistrationMask.nii.gz'
+        )
+    elif skull_strip_template == 'scsnl':
+        template_path = '/home/users/kochalka/lab_shared/data/templates/scsnl_T1w/'
+        brain_template = os.path.join(template_path, 'T_template0.nii.gz')
+        brain_probability_mask = os.path.join(template_path, 'T_template0_brain_prob.nii.gz')
+        brain_registration_mask = os.path.join(template_path, 'T_template0_registration_mask.nii.gz')
+    else:
+        error('Invalid skull_strip_template: %s' % skull_strip_template)
 
     workflow = pe.Workflow(name=name)
 
