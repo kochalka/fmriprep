@@ -106,7 +106,7 @@ def get_parser():
                         help='use ANTs-based skull-stripping (default, slow))')
     g_ants.add_argument('--no-skull-strip-ants', dest="skull_strip_ants", action='store_false',
                         help="don't use ANTs-based skull-stripping (use  AFNI instead, fast)")
-    g_ants.add_argument('--skull-strip-template', dest="skull_strip_template", action='store_const',
+    g_ants.add_argument('--skull-strip-template', dest="skull_strip_template", action='store_const',const='oasis',
                         help="Name for T1w template + pr(brain) map for skull stripping {oasis (default), scsnl}")
     g_ants.set_defaults(skull_strip_ants=True, skull_strip_template='oasis')
 
