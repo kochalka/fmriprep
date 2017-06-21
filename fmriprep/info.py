@@ -6,7 +6,7 @@ Base module variables
 """
 from __future__ import unicode_literals
 
-__version__ = '0.4.7-dev'
+__version__ = '0.5.1-dev'
 __author__ = 'The CRN developers'
 __copyright__ = 'Copyright 2017, Center for Reproducible Neuroscience, Stanford University'
 __credits__ = ['Craig Moodie', 'Ross Blair', 'Oscar Esteban', 'Chris Gorgolewski',
@@ -68,7 +68,7 @@ REQUIRES = [
     'grabbit',
     'pybids>=0.2.1',
     'nitime',
-    'niworkflows>=0.1.2',
+    'niworkflows>=0.1.3',
     'statsmodels',
     'nipype',
 ]
