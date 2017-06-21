@@ -106,8 +106,9 @@ def get_parser():
                         help='use ANTs-based skull-stripping (default, slow))')
     g_ants.add_argument('--no-skull-strip-ants', dest="skull_strip_ants", action='store_false',
                         help="don't use ANTs-based skull-stripping (use  AFNI instead, fast)")
-    g_ants.add_argument('--skull-strip-template', dest="skull_strip_template", action='store_const',const='oasis',
-                        help="Name for T1w template + pr(brain) map for skull stripping {oasis (default), scsnl}")
+    g_ants.add_argument('--skull-strip-template', dest="skull_strip_template", action='store',
+                        choices = ['oasis', 'scsnl'], default='oasis',
+                        help="template to use for skull stripping (default: oasis)")
     g_ants.set_defaults(skull_strip_ants=True, skull_strip_template='oasis')
 
     # Fieldmap options
@@ -222,6 +223,7 @@ def create_workflow(opts):
                                    anat_only=opts.anat_only,
                                    omp_nthreads=omp_nthreads,
                                    skull_strip_ants=opts.skull_strip_ants,
+                                   skull_strip_template=opts.skull_strip_template,
                                    reportlets_dir=reportlets_dir,
                                    output_dir=output_dir,
                                    bids_dir=bids_dir,
