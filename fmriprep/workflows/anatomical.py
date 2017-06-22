@@ -30,7 +30,7 @@ from fmriprep.utils.misc import fix_multi_T1w_source_name, add_suffix
 
 
 #  pylint: disable=R0914
-def init_anat_preproc_wf(skull_strip_ants, output_spaces, template, debug, freesurfer,
+def init_anat_preproc_wf(skull_strip_ants, skull_strip_template, output_spaces, template, debug, freesurfer,
                          omp_nthreads, hires, reportlets_dir, output_dir,
                          name='anat_preproc_wf'):
     """T1w images preprocessing pipeline"""
