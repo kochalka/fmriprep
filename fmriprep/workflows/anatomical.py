@@ -236,9 +236,9 @@ def init_skullstrip_ants_wf(debug, omp_nthreads, skull_strip_template, name='sku
         )
     elif skull_strip_template == 'scsnl':
         template_path = '/home/users/kochalka/lab_shared/data/templates/scsnl_T1w/'
-        brain_template = os.path.join(template_path, 'T_template0.nii.gz')
-        brain_probability_mask = os.path.join(template_path, 'T_template0_brain_prob.nii.gz')
-        brain_registration_mask = os.path.join(template_path, 'T_template0_registration_mask.nii.gz')
+        brain_template = op.join(template_path, 'T_template0.nii.gz')
+        brain_probability_mask = op.join(template_path, 'T_template0_brain_prob.nii.gz')
+        extraction_registration_mask = op.join(template_path, 'T_template0_registration_mask.nii.gz')
     else:
         error('Invalid skull_strip_template: %s' % skull_strip_template)
 
@@ -259,18 +259,11 @@ def init_skullstrip_ants_wf(debug, omp_nthreads, skull_strip_template, name='sku
     # scheduler knows the resource limits
     t1_skull_strip.interface.num_threads = omp_nthreads
 
-    t1_skull_strip.inputs.brain_template = op.join(
-        get_ants_oasis_template_ras(),
-        'T_template0.nii.gz'
-    )
-    t1_skull_strip.inputs.brain_probability_mask = op.join(
-        get_ants_oasis_template_ras(),
-        'T_template0_BrainCerebellumProbabilityMask.nii.gz'
-    )
-    t1_skull_strip.inputs.extraction_registration_mask = op.join(
-        get_ants_oasis_template_ras(),
-        'T_template0_BrainCerebellumRegistrationMask.nii.gz'
-    )
+    t1_skull_strip.inputs.brain_template =  brain_template
+    
+    t1_skull_strip.inputs.brain_probability_mask = brain_probability_mask
+    
+    t1_skull_strip.inputs.extraction_registration_mask = extraction_registration_mask
 
     workflow.connect([
         (inputnode, t1_skull_strip, [('in_file', 'anatomical_image')]),
