@@ -6,7 +6,7 @@ Base module variables
 """
 from __future__ import unicode_literals
 
-__version__ = '0.5.2-dev'
+__version__ = '0.5.5-dev'
 __author__ = 'The CRN developers'
 __copyright__ = 'Copyright 2017, Center for Reproducible Neuroscience, Stanford University'
 __credits__ = ['Craig Moodie', 'Ross Blair', 'Oscar Esteban', 'Chris Gorgolewski',
@@ -45,7 +45,7 @@ __longdesc__ = ("This package is a functional magnetic resonance image preproces
                 "better neuroimaging software become available.")
 
 DOWNLOAD_URL = (
-    'https://pypi.python.org/packages/source/{name[0]}/{name}/{name}-{ver}.tar.gz'.format(
+    'https://github.com/poldracklab/{name}/archive/{ver}.tar.gz'.format(
         name=__packagename__, ver=__version__))
 
 
@@ -68,7 +68,7 @@ REQUIRES = [
     'grabbit',
     'pybids>=0.2.1',
     'nitime',
-    'niworkflows>=0.1.3',
+    'niworkflows>=0.1.4',
     'statsmodels',
     'nipype',
     'seaborn',

@@ -23,10 +23,11 @@ from niworkflows.interfaces.registration import EstimateReferenceImage
 import niworkflows.data as nid
 
 from niworkflows.interfaces import SimpleBeforeAfter
-from fmriprep.interfaces import DerivativesDataSink, InvertT1w
+from fmriprep.interfaces import DerivativesDataSink, InvertT1w, ValidateImage
 
 from fmriprep.interfaces.images import GenerateSamplingReference, extract_wm
 from fmriprep.interfaces.nilearn import Merge
+from fmriprep.interfaces.reports import FunctionalSummary
 from fmriprep.workflows import confounds
 from niworkflows.nipype.utils.filemanip import split_filename
 from fmriprep.workflows.fieldmap.unwarp import init_pepolar_unwarp_wf
@@ -94,6 +95,10 @@ def init_func_preproc_wf(bold_file, ignore, freesurfer,
                 'aroma_noise_ics', 'melodic_mix']),
         name='outputnode')
 
+    summary = pe.Node(FunctionalSummary(output_spaces=output_spaces), name='summary')
+    summary.inputs.slice_timing = "SliceTiming" in metadata and 'slicetiming' not in ignore
+    summary.inputs.registration = 'bbregister' if freesurfer else 'FLIRT'
+
     func_reports_wf = init_func_reports_wf(reportlets_dir=reportlets_dir,
                                            freesurfer=freesurfer,
                                            use_aroma=use_aroma,
@@ -119,6 +124,8 @@ def init_func_preproc_wf(bold_file, ignore, freesurfer,
                                            ]),
         ])
 
+    validate = pe.Node(ValidateImage(), name='validate')
+
     # HMC on the EPI
     epi_hmc_wf = init_epi_hmc_wf(name='epi_hmc_wf', metadata=metadata,
                                  bold_file_size_gb=bold_file_size_gb,
@@ -137,12 +144,14 @@ def init_func_preproc_wf(bold_file, ignore, freesurfer,
     discover_wf = confounds.init_discover_wf(bold_file_size_gb=bold_file_size_gb,
                                              use_aroma=use_aroma,
                                              ignore_aroma_err=ignore_aroma_err,
+                                             metadata=metadata,
                                              name='discover_wf')
 
     discover_wf.get_node('inputnode').inputs.t1_transform_flags = [False]
 
     workflow.connect([
-        (inputnode, epi_hmc_wf, [('epi', 'inputnode.epi')]),
+        (inputnode, validate, [('epi', 'in_file')]),
+        (validate, epi_hmc_wf, [('out_file', 'inputnode.epi')]),
         (inputnode, epi_reg_wf, [('epi', 'inputnode.name_source'),
                                  ('t1_preproc', 'inputnode.t1_preproc'),
                                  ('t1_brain', 'inputnode.t1_brain'),
@@ -159,6 +168,7 @@ def init_func_preproc_wf(bold_file, ignore, freesurfer,
         (epi_hmc_wf, discover_wf, [('outputnode.movpar_file', 'inputnode.movpar_file')]),
         (epi_reg_wf, discover_wf, [('outputnode.epi_t1', 'inputnode.fmri_file'),
                                    ('outputnode.epi_mask_t1', 'inputnode.epi_mask')]),
+        (validate, func_reports_wf, [('out_report', 'inputnode.validation_report')]),
         (epi_reg_wf, func_reports_wf, [
             ('outputnode.out_report', 'inputnode.epi_reg_report'),
             ]),
@@ -171,6 +181,8 @@ def init_func_preproc_wf(bold_file, ignore, freesurfer,
             ('outputnode.acompcor_report', 'inputnode.acompcor_report'),
             ('outputnode.tcompcor_report', 'inputnode.tcompcor_report'),
             ('outputnode.ica_aroma_report', 'inputnode.ica_aroma_report')]),
+        (discover_wf, summary, [('outputnode.confounds_list', 'confounds')]),
+        (summary, func_reports_wf, [('out_report', 'inputnode.summary_report')]),
         ])
 
     # Cases:
@@ -188,6 +200,7 @@ def init_func_preproc_wf(bold_file, ignore, freesurfer,
         fmap = fmaps[0]
 
         LOGGER.info('Fieldmap estimation: type "%s" found', fmap['type'])
+        summary.inputs.distortion_correction = fmap['type']
 
         if fmap['type'] == 'epi':
             epi_fmaps = [fmap['epi'] for fmap in fmaps if fmap['type'] == 'epi']
@@ -247,6 +260,7 @@ def init_func_preproc_wf(bold_file, ignore, freesurfer,
     elif not use_syn:
         LOGGER.warn('No fieldmaps found or they were ignored, building base workflow '
                     'for dataset %s.', bold_file)
+        summary.inputs.distortion_correction = 'None'
         workflow.connect([
             (epi_hmc_wf, func_reports_wf, [
                 ('outputnode.epi_mask_report', 'inputnode.epi_mask_report')]),
@@ -275,6 +289,7 @@ def init_func_preproc_wf(bold_file, ignore, freesurfer,
         if not fmaps:
             LOGGER.warn('No fieldmaps found or they were ignored. Using EXPERIMENTAL '
                         'nonlinear susceptibility correction for dataset %s.', bold_file)
+            summary.inputs.distortion_correction = 'SyN'
             workflow.connect([
                 (nonlinear_sdc_wf, func_reports_wf, [
                     ('outputnode.out_mask_report', 'inputnode.epi_mask_report')]),
@@ -914,7 +929,7 @@ def init_nonlinear_sdc_wf(bold_file, layout, freesurfer, bold2t1w_dof,
 
         pe_chooser = pe.Node(
             niu.Function(function=select_outputs,
-                         out_names=['warped_image', 'forward_transforms']),
+                         output_names=['warped_image', 'forward_transforms']),
             name='pe_chooser')
 
         workflow.connect([(inputnode, syn_i, [('epi_ref', 'moving_image')]),
@@ -1010,10 +1025,21 @@ def init_func_reports_wf(reportlets_dir, freesurfer, use_aroma, use_syn, name='f
 
     inputnode = pe.Node(
         niu.IdentityInterface(
-            fields=['source_file', 'epi_mask_report', 'epi_reg_report', 'acompcor_report',
-                    'tcompcor_report', 'syn_sdc_report', 'ica_aroma_report']
+            fields=['source_file', 'summary_report', 'validation_report', 'epi_mask_report',
+                    'epi_reg_report', 'acompcor_report', 'tcompcor_report', 'syn_sdc_report',
+                    'ica_aroma_report']
             ),
         name='inputnode')
+
+    ds_summary_report = pe.Node(
+        DerivativesDataSink(base_directory=reportlets_dir,
+                            suffix='summary'),
+        name='ds_summary_report', run_without_submitting=True)
+
+    ds_validation_report = pe.Node(
+        DerivativesDataSink(base_directory=reportlets_dir,
+                            suffix='validation'),
+        name='ds_validation_report', run_without_submitting=True)
 
     ds_epi_mask_report = pe.Node(
         DerivativesDataSink(base_directory=reportlets_dir,
@@ -1046,6 +1072,10 @@ def init_func_reports_wf(reportlets_dir, freesurfer, use_aroma, use_syn, name='f
         name='ds_ica_aroma_report', run_without_submitting=True)
 
     workflow.connect([
+        (inputnode, ds_summary_report, [('source_file', 'source_file'),
+                                        ('summary_report', 'in_file')]),
+        (inputnode, ds_validation_report, [('source_file', 'source_file'),
+                                           ('validation_report', 'in_file')]),
         (inputnode, ds_epi_mask_report, [('source_file', 'source_file'),
                                          ('epi_mask_report', 'in_file')]),
         (inputnode, ds_epi_reg_report, [('source_file', 'source_file'),

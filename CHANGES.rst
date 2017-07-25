@@ -1,3 +1,23 @@
+Next release
+============
+
+
+0.5.4 (20th of July 2017)
+=========================
+
+* [DOC] Improved report summaries describing steps taken (#584)
+* [ENH] Uniformize command-line argument style (#592)
+
+0.5.3 (18th of July 2017)
+=========================
+
+With thanks to Yaroslav Halchenko for contributions.
+
+* [ENH] High-pass filter time series prior to CompCor (#577)
+* [ENH] Validate and minimally conform BOLD images (#581)
+* [FIX] Bug that prevented PE direction estimation (#586)
+* [DOC] Log version/time in report (#587)
+
 0.5.2 (30th of June 2017)
 =========================
 
