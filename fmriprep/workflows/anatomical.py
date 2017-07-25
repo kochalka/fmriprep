@@ -65,7 +65,8 @@ def init_anat_preproc_wf(skull_strip_ants, skull_strip_template, output_spaces, 
     # Bias field correction is handled in skull strip workflows.
 
     # 3. Skull-stripping
-    skullstrip_wf = init_skullstrip_afni_wf(name='skullstrip_afni_wf')
+    #skullstrip_wf = init_skullstrip_afni_wf(name='skullstrip_afni_wf')
+    skullstrip_wf = init_skullstrip_watershed_wf(name='skullstrip_watershed_wf')
     if skull_strip_ants:
         skullstrip_wf = init_skullstrip_ants_wf(name='skullstrip_ants_wf',
                                                 debug=debug,
@@ -271,6 +272,40 @@ def init_skullstrip_ants_wf(debug, omp_nthreads, skull_strip_template, name='sku
                                       ('BrainExtractionBrain', 'out_file'),
                                       ('N4Corrected0', 'bias_corrected'),
                                       ('out_report', 'out_report')])
+    ])
+
+    return workflow
+
+def init_skullstrip_watershed_wf(debug, name='skullstrip_watershed_wf'):
+    workflow = pe.Workflow(name=name)
+
+    inputnode = pe.Node(niu.IdentityInterface(fields=['in_file', 'source_file']),
+                        name='inputnode')
+
+    outputnode = pe.Node(niu.IdentityInterface(
+        fields=['bias_corrected', 'out_file', 'out_mask']), name='outputnode')
+
+    n4_correct = pe.Node(ants.N4BiasFieldCorrection(dimension=3, copy_header=True),
+                         name='n4_correct')
+
+    t1_skull_strip = pe.Node(fs.WatershedSkullStrip(),
+                             name='t1_skull_strip')
+
+    create_mask = pe.Node(fs.Binarize(min=0.0, dilate=0, out_type='.nii.gz'), 
+                          name='create_mask')
+
+    apply_mask = pe.Node(fsl.ApplyMask(),
+                         name='apply_mask')
+
+    workflow.connect([
+        (inputnode, n4_correct, [('in_file', 'input_image')]),
+        (n4_correct, t1_skull_strip, [('bias_corrected', 'in_file')]),
+        (n4_correct, outputnode, [('bias_corrected', 'bias_corrected')]),
+        (t1_skull_strip, create_mask, [('out_file', 'in_file')]),
+        (create_mask, apply_mask, [('binary_file', 'mask_file')]),
+        (inputnode, apply_mask, [('in_file', 'in_file')]),
+        (create_mask, outputnode, [('binary_file', 'out_mask')]),
+        (apply_mask, outputnode, [('out_file', 'out_file')])
     ])
 
     return workflow
