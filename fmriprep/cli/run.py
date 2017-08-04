@@ -101,7 +101,7 @@ def get_parser():
              )
     g_conf.add_argument(
         '--template', required=False, action='store',
-        choices=['MNI152NLin2009cAsym'], default='MNI152NLin2009cAsym',
+        choices=['MNI152NLin2009cAsym', 'MNI152NLin6Asym'], default='MNI152NLin2009cAsym',
         help='volume template space (default: MNI152NLin2009cAsym)')
 
     g_conf.add_argument(
