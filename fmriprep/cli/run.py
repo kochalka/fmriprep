@@ -7,9 +7,12 @@ fMRI preprocessing workflow
 """
 from __future__ import absolute_import, division, print_function, unicode_literals
 
-import os.path as op
-import glob
 import sys
+import os.path as op
+sys.path.append(op.dirname(__file__))
+
+import BIDSgenerator
+import glob
 import uuid
 from argparse import ArgumentParser
 from argparse import RawTextHelpFormatter
@@ -39,6 +42,10 @@ def get_parser():
                         help='processing stage to be run, only "participant" in the case of '
                              'FMRIPREP (see BIDS-Apps specification).')
 
+    parser.add_argument('participant_num', action='store')
+    parser.add_argument('visit_num', action='store')
+    parser.add_argument('session_num', action='store')
+    
     # optional arguments
     parser.add_argument('-v', '--version', action='version', version=verstr)
 
@@ -155,6 +162,8 @@ def get_parser():
 def main():
     """Entry point"""
     opts = get_parser().parse_args()
+    BIDSgenerator.createBIDS(opts.bids_dir, opts.participant_num, opts.visit_num, opts.session_num)
+    opts.bids_dir =  '/BIDSproject'
     create_workflow(opts)
 
 
