@@ -1,4 +1,13 @@
-from __future__ import unicode_literals
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+# emacs: -*- mode: python; py-indent-offset: 4; indent-tabs-mode: nil -*-
+# vi: set ft=python sts=4 ts=4 sw=4 et:
+"""
+fMRIprep reports builder
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+
+"""
 
 import json
 import re
@@ -112,8 +121,6 @@ class Report(object):
                         if element.file_pattern.search(f) and (ext == 'svg' or ext == 'html'):
                             with open(f) as fp:
                                 content = fp.read()
-                                if not element.raw:
-                                    content = content.split('\n', 1)[1]
                                 element.files_contents.append((f, content))
         for sub_report in self.sub_reports:
             sub_report.order_by_run()
@@ -169,6 +176,28 @@ class Report(object):
 
 
 def run_reports(reportlets_dir, out_dir, subject_label, run_uuid):
+    """
+    Runs the reports
+
+    >>> import os
+    >>> from shutil import copytree
+    >>> from tempfile import TemporaryDirectory
+    >>> filepath = os.path.dirname(os.path.realpath(__file__))
+    >>> test_data_path = os.path.realpath(os.path.join(filepath,
+    ...                                   '../data/tests/work'))
+    >>> curdir = os.getcwd()
+    >>> tmpdir = TemporaryDirectory()
+    >>> os.chdir(tmpdir.name)
+    >>> data_dir = copytree(test_data_path, os.path.abspath('work'))
+    >>> os.makedirs('out/fmriprep', exist_ok=True)
+    >>> run_reports(os.path.abspath('work/reportlets'),
+    ...             os.path.abspath('out'),
+    ...             '01', 'madeoutuuid')
+    0
+    >>> os.chdir(curdir)
+    >>> tmpdir.cleanup()
+
+    """
     reportlet_path = os.path.join(reportlets_dir, 'fmriprep', "sub-" + subject_label)
     config = pkgrf('fmriprep', 'viz/config.json')
 
