@@ -85,7 +85,7 @@ def init_anat_preproc_wf(skull_strip_ants, skull_strip_template, output_spaces, 
 
     # 3. Skull-stripping
     #skullstrip_wf = init_skullstrip_afni_wf(name='skullstrip_afni_wf')
-    skullstrip_wf = init_skullstrip_watershed_wf(name='HWASkullStripWorkflow', n4_nthreads=1)
+    skullstrip_wf = init_skullstrip_watershed_wf(name='skullstrip_watershed_wf', n4_nthreads=omp_nthreads)
     if skull_strip_ants:
         skullstrip_wf = init_skullstrip_ants_wf(name='skullstrip_ants_wf',
                                                 debug=debug,
