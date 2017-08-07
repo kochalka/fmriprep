@@ -43,7 +43,7 @@ def createBIDS(projDir, pid, visitNum, sessionNum):
             if(not flag):
                 break
             if(file.endswith('.nii.gz')):
-                fileName = 'sub-01_' + taskName + '.nii.gz'
+                fileName = ('sub-%s_' % subStr) + taskName + '.nii.gz'
                 shutil.copyfile(os.path.join(root, file), toDir + '/func/' + fileName)
                 toFile = toDir + '/func/' + fileName
                 img = nib.load(toFile)
@@ -56,7 +56,7 @@ def createBIDS(projDir, pid, visitNum, sessionNum):
                 assert(img.get_header()['pixdim'][4] == repTime)
 
             elif(file.endswith('.json')):
-                fileName = 'sub-01_' + taskName + '.json'
+                fileName = ('sub-%s_' % subStr) + taskName + '.json'
                 shutil.copyfile(os.path.join(root, file), toDir + '/func/' + fileName)              
 
 

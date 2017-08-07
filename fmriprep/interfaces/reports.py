@@ -60,7 +60,7 @@ class AnatomicalSummaryInputSpec(BaseInterfaceInputSpec):
     subjects_dir = Directory(desc='FreeSurfer subjects directory')
     subject_id = traits.Str(desc='FreeSurfer subject ID')
     output_spaces = traits.List(desc='Target spaces')
-    template = traits.Enum('MNI152NLin2009cAsym', desc='Template space')
+    template = traits.Enum('MNI152NLin2009cAsym', 'MNI152NLin6Asym', desc='Template space')
 
 
 class AnatomicalSummaryOutputSpec(SummaryOutputSpec):
