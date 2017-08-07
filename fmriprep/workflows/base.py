@@ -82,7 +82,7 @@ def init_fmriprep_wf(subject_list, task_id, run_uuid,
 
 
 def init_single_subject_wf(subject_id, task_id, name,
-                           ignore, debug, anat_only, omp_nthreads,
+                           ignore, debug, anat_only, longitudinal, omp_nthreads,
                            skull_strip_ants, skull_strip_template, reportlets_dir, output_dir, bids_dir,
                            freesurfer, output_spaces, template, hires,
                            bold2t1w_dof, fmap_bspline, fmap_demean, use_syn, force_syn,
