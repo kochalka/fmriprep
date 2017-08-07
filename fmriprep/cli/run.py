@@ -9,7 +9,7 @@ fMRI preprocessing workflow
 import sys
 import os.path as op
 #sys.path.append(op.dirname(__file__))
-import BIDSgenerator
+import .BIDSgenerator
 import glob
 import os
 import logging
