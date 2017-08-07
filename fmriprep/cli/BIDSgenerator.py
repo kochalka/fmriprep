@@ -7,9 +7,9 @@ import json
 
 
 def createBIDS(projDir, pid, visitNum, sessionNum):
-    fromDir = op.join(projDir,'data', 'imaging', 'participants', pid, 'visit%i' % visitNum,'session%i' % sessionNum)
+    fromDir = op.join(projDir,'data', 'imaging', 'participants', pid, 'visit%s' % visitNum,'session%s' % sessionNum)
     toDirRoot =  op.join(projDir, 'data', 'imaging', 'BIDS')
-    subStr = '%i%i%i' % (pid,visitNum,sessionNum)
+    subStr = '%s%s%s' % (pid,visitNum,sessionNum)
     toDir = op.join(toDirRoot, 'sub-' + subStr)
     if not os.path.exists(toDir):
         os.makedirs(toDir)
