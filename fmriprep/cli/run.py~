@@ -183,8 +183,9 @@ def main():
     """Entry point"""
     warnings.showwarning = _warn_redirect
     opts = get_parser().parse_args()
-    BIDSgenerator.createBIDS(opts.bids_dir, opts.participant_num, opts.visit_num, opts.session_num)
-    opts.bids_dir =  '/BIDSproject'
+    bidsdir, plabel = BIDSgenerator.createBIDS(opts.bids_dir, opts.participant_num, opts.visit_num, opts.session_num)
+    opts.bids_dir = bidsdir
+    opts.participant_label = plabel
 
     if opts.debug:
         logger.setLevel(logging.DEBUG)
@@ -295,6 +296,7 @@ def create_workflow(opts):
         longitudinal=opts.longitudinal,
         omp_nthreads=omp_nthreads,
         skull_strip_ants=opts.skull_strip_ants,
+        skull_strip_template=opts.skull_strip_template,
         work_dir=work_dir,
         output_dir=output_dir,
         bids_dir=bids_dir,

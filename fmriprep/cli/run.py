@@ -183,8 +183,9 @@ def main():
     """Entry point"""
     warnings.showwarning = _warn_redirect
     opts = get_parser().parse_args()
-    BIDSgenerator.createBIDS(opts.bids_dir, opts.participant_num, opts.visit_num, opts.session_num)
-    opts.bids_dir =  '/BIDSproject'
+    bidsdir, subject = BIDSgenerator.createBIDS(opts.bids_dir, opts.participant_num, opts.visit_num, opts.session_num)
+    opts.bids_dir = bidsdir
+    opts.participant_label = subject
 
     if opts.debug:
         logger.setLevel(logging.DEBUG)

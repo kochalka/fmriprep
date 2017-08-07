@@ -1,24 +1,24 @@
 import os
+import os.path as op
 import shutil
 import sys 
 import nibabel as nib
 import json
 
 
-
 def createBIDS(projDir, pid, visitNum, sessionNum):
-    fromDir = projDir + '/data/imaging/participants/' + pid + '/visit' + visitNum + '/session' + sessionNum
-    toDirRoot =  '/BIDSproject'
-    toDir = '/BIDSproject/sub-01'
+    fromDir = op.join(projDir,'data', 'imaging', 'participants', pid, 'visit%i' % visitNum,'session%i' % sessionNum)
+    toDirRoot =  op.join(projDir, 'data', 'imaging', 'BIDS')
+    subStr = '%i%i%i' % (pid,visitNum,sessionNum)
+    toDir = op.join(toDirRoot, 'sub-' + subStr)
     if not os.path.exists(toDir):
-        #os.makedirs('my_dataset')
         os.makedirs(toDir)
         os.makedirs(toDir + '/anat')
         os.makedirs(toDir + '/func')
         os.makedirs(toDir + '/dwi')
 
     ''' Copy over anat '''
-    shutil.copyfile(fromDir + '/anatomical/T1w-0_defaced.nii.gz', toDir + '/anat/sub-01_T1w.nii.gz')
+    shutil.copyfile(fromDir + '/anatomical/T1w-0_defaced.nii.gz', toDir + '/anat/sub-%s_T1w.nii.gz' % subStr)
 
     ''' Copy over dwi (incomplete -- missing 2 files)'''
     # shutil.copyfile(fromDir + '/dwi/dwi_raw.nii.gz', toDir + '/dwi/sub-01_dwi.nii.gz')
@@ -66,7 +66,8 @@ def createBIDS(projDir, pid, visitNum, sessionNum):
     #         if(file == '.DS_Store'):
     #             os.remove(os.path.join(root, file))
 
+    return toDirRoot, subStr
 
 
-if(len(sys.argv) == 5):
-    createBIDS(sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4])
+#if(len(sys.argv) == 5):
+#    createBIDS(sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4])
