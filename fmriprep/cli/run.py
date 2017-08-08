@@ -60,6 +60,7 @@ def get_parser():
     parser.add_argument('participant_num', action='store')
     parser.add_argument('visit_num', action='store')
     parser.add_argument('session_num', action='store')
+    parser.add_argument('run_name', action='store')
     
     # optional arguments
     parser.add_argument('-v', '--version', action='version', version=verstr)
@@ -183,7 +184,8 @@ def main():
     """Entry point"""
     warnings.showwarning = _warn_redirect
     opts = get_parser().parse_args()
-    bidsdir, subject = BIDSgenerator.createBIDS(opts.bids_dir, opts.participant_num, opts.visit_num, opts.session_num)
+    proj_dir = opts.bids_dir
+    bidsdir, subject = BIDSgenerator.createBIDS(opts.bids_dir, opts.participant_num, opts.visit_num, opts.session_num, opts.run_name)
     opts.bids_dir = bidsdir
     opts.participant_label = subject
 
@@ -208,7 +210,7 @@ def main():
         logger.warning(msg)
 
     create_workflow(opts)
-
+    BIDSgenerator.moveToProject(proj_dir, opts.participant_num, opts.visit_num, opts.session_num, opts.run_name, opts.output_dir)
 
 def create_workflow(opts):
     """Build workflow"""
