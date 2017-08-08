@@ -18,7 +18,7 @@ def createBIDS(projDir, pid, visitNum, sessionNum):
         os.makedirs(toDir + '/dwi')
 
     ''' Copy over anat '''
-    shutil.copyfile(fromDir + '/anatomical/T1w-0_defaced.nii.gz', toDir + '/anat/sub-%s_T1w-0.nii.gz' % subStr)
+    shutil.copyfile(fromDir + '/anatomical/T1w-0_defaced.nii.gz', toDir + '/anat/sub-%s_T1w.nii.gz' % subStr)
 
     ''' Copy over dwi (incomplete -- missing 2 files)'''
     # shutil.copyfile(fromDir + '/dwi/dwi_raw.nii.gz', toDir + '/dwi/sub-01_dwi.nii.gz')
