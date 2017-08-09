@@ -52,7 +52,7 @@ def createBIDS(projDir, pid, visitNum, sessionNum, runName):
 def moveToProject(projDir, pid, visitNum, sessionNum, runName, processedDir):
     subStr = '%s%s%s' % (pid,visitNum,sessionNum)
     fromDir = op.join(processedDir, 'fmriprep', 'sub-' + subStr, 'func')
-    toDir = op.join(projDir,'data', 'imaging', 'participants', pid, 'visit%s' % visitNum,'session%s' % sessionNum, 'fmri', runName, 'preprocessed)
+    toDir = op.join(projDir,'data', 'imaging', 'participants', pid, 'visit%s' % visitNum,'session%s' % sessionNum, 'fmri', runName, 'preprocessed')
     if not os.path.exists(toDir):
         #os.makedirs('my_dataset')
         os.makedirs(toDir)
