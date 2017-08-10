@@ -140,13 +140,8 @@ def init_anat_preproc_wf(skull_strip_ants, skull_strip_template, output_spaces, 
     ])
 
     if 'template' in output_spaces:
-        if template == 'MNI152NLin6Asym': #fixme ... future
-            import os
-            template_str = 'mni_icbm152_nlin_asym_6'
-            ref_img = op.join(os.environ['FSLDIR'], 'data', 'standard', 'MNI152_T1_1mm_brain.nii.gz')
-        else:
-            template_str = nid.TEMPLATE_MAP[template]
-            ref_img = op.join(nid.get_dataset(template_str), '1mm_T1.nii.gz')
+        template_str = nid.TEMPLATE_MAP[template]
+        ref_img = op.join(nid.get_dataset(template_str), '1mm_T1.nii.gz')
 
         t1_2_mni.inputs.template = template_str
         mni_mask.inputs.reference_image = ref_img
@@ -201,11 +196,12 @@ def init_anat_preproc_wf(skull_strip_ants, skull_strip_template, output_spaces, 
         (t1_seg, anat_reports_wf, [('out_report', 'inputnode.t1_seg_report')]),
     ])
 
-    if skull_strip_ants:
-        workflow.connect([
-            (skullstrip_wf, anat_reports_wf, [
-                ('outputnode.out_report', 'inputnode.t1_skull_strip_report')])
-        ])
+    #if skull_strip_ants:
+    # JK: also connect watershed wf to report
+    workflow.connect([
+        (skullstrip_wf, anat_reports_wf, [
+            ('outputnode.out_report', 'inputnode.t1_skull_strip_report')])
+    ])
     if freesurfer:
         workflow.connect([
             (surface_recon_wf, anat_reports_wf, [
