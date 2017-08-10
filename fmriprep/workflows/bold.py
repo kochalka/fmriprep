@@ -456,11 +456,11 @@ def init_bold_hmc_wf(metadata, bold_file_size_gb, ignore,
             return "@" + x
 
         workflow.connect([
-            (inputnode, slice_timing_correction, [('bold_file', 'in_file')]),
+            (inputnode, hmc, [('bold_file', 'in_file')]),
+            (hmc,slice_timing_correction, [('out_file', 'in_file')]),
             (gen_ref, slice_timing_correction, [('n_volumes_to_discard', 'ignore')]),
             (create_custom_slice_timing_file, slice_timing_correction, [
-                (('out', _prefix_at), 'tpattern')]),
-            (slice_timing_correction, hmc, [('out_file', 'in_file')])
+                (('out', _prefix_at), 'tpattern')])
         ])
 
     else:
