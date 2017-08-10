@@ -4,7 +4,7 @@ import shutil
 import sys 
 import nibabel as nib
 import json
-
+import numpy as np
 
 def createBIDS(projDir, pid, visitNum, sessionNum, runName = None):
     fromDir = op.join(projDir,'data', 'imaging', 'participants', pid, 'visit%s' % visitNum,'session%s' % sessionNum)
@@ -70,7 +70,7 @@ def createBIDS(projDir, pid, visitNum, sessionNum, runName = None):
 
                     ''' Make sure repetition time was saved to nifti file '''
                     img = nib.load(toFile)
-                    assert(img.get_header()['pixdim'][4] == repTime)         
+                    assert np.allclose(img.get_header()['pixdim'][4],repTime), 'image header TR=%f, sidecar TR=%f' % (img.header['pixdim'][4],repTime)
 
     return toDirRoot, subStr
 
@@ -97,4 +97,4 @@ def moveToProject(projDir, pid, visitNum, sessionNum, processedDir):
                 if 'brainmask' in fileName:
                     shutil.copyfile(os.path.join(root, file), toSubDir +  '/brainmask.nii.gz')   
                 elif 'preproc' in fileName:
-                    shutil.copyfile(os.path.join(root, file), toSubDir + '/I_preproc.nii.gz')  
+                    shutil.copyfile(os.path.join(root, file), toSubDir + '/I_preproc.nii.gz') 
