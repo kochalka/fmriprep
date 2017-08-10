@@ -60,7 +60,6 @@ def get_parser():
     parser.add_argument('participant_num', action='store')
     parser.add_argument('visit_num', action='store')
     parser.add_argument('session_num', action='store')
-    parser.add_argument('run_name', action='store')
     
     # optional arguments
     parser.add_argument('-v', '--version', action='version', version=verstr)
@@ -75,7 +74,7 @@ def get_parser():
     # Re-enable when option is actually implemented
     # g_bids.add_argument('-r', '--run-id', action='store', default='single_run',
     #                     help='select a specific run to be processed')
-    g_bids.add_argument('-t', '--task-id', action='store',
+    g_bids.add_argument('-t', '--task-id', action='store', default = False,
                         help='select a specific task to be processed')
 
     g_perfm = parser.add_argument_group('Options to handle performance')
@@ -185,7 +184,10 @@ def main():
     warnings.showwarning = _warn_redirect
     opts = get_parser().parse_args()
     proj_dir = opts.bids_dir
-    bidsdir, subject = BIDSgenerator.createBIDS(opts.bids_dir, opts.participant_num, opts.visit_num, opts.session_num, opts.run_name)
+    if opts.task_id:
+        bidsdir, subject = BIDSgenerator.createBIDS(opts.bids_dir, opts.participant_num, opts.visit_num, opts.session_num, opts.task_id)
+    else:
+        bidsdir, subject = BIDSgenerator.createBIDS(opts.bids_dir, opts.participant_num, opts.visit_num, opts.session_num)
     opts.bids_dir = bidsdir
     opts.participant_label = subject
 
@@ -210,7 +212,7 @@ def main():
         logger.warning(msg)
 
     create_workflow(opts)
-    BIDSgenerator.moveToProject(proj_dir, opts.participant_num, opts.visit_num, opts.session_num, opts.run_name, opts.output_dir)
+    BIDSgenerator.moveToProject(proj_dir, opts.participant_num, opts.visit_num, opts.session_num, opts.output_dir)
 
 def create_workflow(opts):
     """Build workflow"""
