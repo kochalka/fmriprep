@@ -1,3 +1,22 @@
+1.0.0-rc3 (28th of August 2017)
+===============================
+
+With thanks to Anibal Sólon for contributions.
+
+* [ENH] Add --low-mem option to reduce memory usage for large BOLD series (#663)
+* [ENH] Parallelize anatomical conformation step (#666)
+* [FIX] Handle missing functional data in SubjectSummary node (#670)
+* [FIX] Disable --no-skull-strip-ants (AFNI skull-stripping) (#674)
+* [FIX] Initialize SyN SDC more robustly (#680)
+* [DOC] Add comprehensive documentation of workflow API (#638)
+
+1.0.0-rc2 (12th of August 2017)
+===============================
+
+* [ENH] Increased support for partial field-of-view BOLD datasets (#659)
+* [FIX] Slice time correction is now being applied to output data (not only to intermediate file used for motion estimation - #662)
+* [FIX] Fieldmap unwarping is now being applied to MNI space outputs (not only to T1w space outputs - #662)
+
 1.0.0-rc1 (8th of August 2017)
 ==============================
 

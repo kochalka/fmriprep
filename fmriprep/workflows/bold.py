@@ -6,11 +6,26 @@
 BOLD fMRI -processing workflows
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-  .. note ::
+.. autofunction:: init_func_preproc_wf
+.. autofunction:: init_bold_reference_wf
+.. autofunction:: init_bold_hmc_wf
+.. autofunction:: init_bold_reg_wf
 
-      Originally coded by Craig Moodie. Refactored by the CRN Developers.
+Registration workflows
+++++++++++++++++++++++
+
+.. autofunction:: fmriprep.workflows.util.init_bbreg_wf
+.. autofunction:: fmriprep.workflows.util.init_fsl_bbr_wf
+
+Resampling workflows
+++++++++++++++++++++
+
+.. autofunction:: init_bold_surf_wf
+.. autofunction:: init_bold_mni_trans_wf
 
 """
+
+# Originally coded by Craig Moodie. Refactored by the CRN Developers.
 
 import os
 import os.path as op
@@ -50,7 +65,133 @@ def init_func_preproc_wf(bold_file, ignore, freesurfer,
                          output_spaces, template, output_dir, omp_nthreads,
                          fmap_bspline, fmap_demean, use_syn, force_syn,
                          use_aroma, ignore_aroma_err,
-                         debug, output_grid_ref, layout=None):
+                         debug, low_mem, output_grid_ref, layout=None):
+    """
+    This workflow controls the functional preprocessing stages of FMRIPREP.
+
+    .. workflow::
+        :graph2use: orig
+        :simple_form: yes
+
+        from fmriprep.workflows.bold import init_func_preproc_wf
+        wf = init_func_preproc_wf('/completely/made/up/path/sub-01_task-nback_bold.nii.gz',
+                                  omp_nthreads=1,
+                                  ignore=[],
+                                  freesurfer=True,
+                                  reportlets_dir='.',
+                                  output_dir='.',
+                                  template='MNI152NLin2009cAsym',
+                                  output_spaces=['T1w', 'fsnative',
+                                                 'template', 'fsaverage5'],
+                                  debug=False,
+                                  bold2t1w_dof=9,
+                                  fmap_bspline=True,
+                                  fmap_demean=True,
+                                  use_syn=True,
+                                  force_syn=True,
+                                  low_mem=False,
+                                  output_grid_ref=None,
+                                  use_aroma=False,
+                                  ignore_aroma_err=False)
+
+    Parameters
+
+        bold_file : str
+            BOLD series NIfTI file
+        ignore : list
+            Preprocessing steps to skip (may include "slicetiming", "fieldmaps")
+        freesurfer : bool
+            Enable FreeSurfer functional registration (bbregister) and resampling
+            BOLD series to FreeSurfer surface meshes.
+        bold2t1w_dof : 6, 9 or 12
+            Degrees-of-freedom for BOLD-T1w registration
+        reportlets_dir : str
+            Directory in which to save reportlets
+        output_spaces : list
+            List of output spaces functional images are to be resampled to.
+            Some parts of pipeline will only be instantiated for some output spaces.
+
+            Valid spaces:
+
+                - T1w
+                - template
+                - fsnative
+                - fsaverage (or other pre-existing FreeSurfer templates)
+        template : str
+            Name of template targeted by `'template'` output space
+        output_dir : str
+            Directory in which to save derivatives
+        omp_nthreads : int
+            Maximum number of threads an individual process may use
+        fmap_bspline : bool
+            **Experimental**: Fit B-Spline field using least-squares
+        fmap_demean : bool
+            Demean voxel-shift map during unwarp
+        use_syn : bool
+            **Experimental**: Enable ANTs SyN-based susceptibility distortion correction (SDC).
+            If fieldmaps are present and enabled, this is not run, by default.
+        force_syn : bool
+            **Temporary**: Always run SyN-based SDC
+        use_aroma : bool
+            Perform ICA-AROMA on MNI-resampled functional series
+        ignore_aroma_err : bool
+            Do not fail on ICA-AROMA errors
+        debug : bool
+            Enable debugging outputs
+        low_mem : bool
+            Write uncompressed .nii files in some cases to reduce memory usage
+        output_grid_ref : str or None
+            Path of custom reference image for normalization
+        layout : BIDSLayout
+            BIDSLayout structure to enable metadata retrieval
+
+    Inputs
+
+        bold_file
+            BOLD series NIfTI file
+        t1_preproc
+            Bias-corrected structural template image
+        t1_brain
+            Skull-stripped ``t1_preproc``
+        t1_mask
+            Mask of the skull-stripped template image
+        t1_seg
+            Segmentation of preprocessed structural image, including
+            gray-matter (GM), white-matter (WM) and cerebrospinal fluid (CSF)
+        t1_tpms
+            List of tissue probability maps in T1w space
+        t1_2_mni_forward_transform
+            ANTs-compatible affine-and-warp transform file
+        t1_2_mni_reverse_transform
+            ANTs-compatible affine-and-warp transform file (inverse)
+        subjects_dir
+            FreeSurfer SUBJECTS_DIR
+        subject_id
+            FreeSurfer subject ID
+        fs_2_t1_transform
+            Affine transform from FreeSurfer subject space to T1w space
+
+
+    Outputs
+
+        bold_t1
+            BOLD series, resampled to T1w space
+        bold_mask_t1
+            BOLD series mask in T1w space
+        bold_mni
+            BOLD series, resampled to template space
+        bold_mask_mni
+            BOLD series mask in template space
+        confounds
+            TSV of confounds
+        surfaces
+            BOLD series, resampled to FreeSurfer surfaces
+        aroma_noise_ics
+            Noise components identified by ICA-AROMA
+        melodic_mix
+            FSL MELODIC mixing matrix
+
+    """
 
     if bold_file == '/completely/made/up/path/sub-01_task-nback_bold.nii.gz':
         bold_file_size_gb = 1
@@ -134,8 +275,7 @@ def init_func_preproc_wf(bold_file, ignore, freesurfer,
         ]),
     ])
 
-    validate = pe.Node(ValidateImage(), name='validate', mem_gb=DEFAULT_MEMORY_MIN_GB,
-                       run_without_submitting=True)
+    bold_reference_wf = init_bold_reference_wf(omp_nthreads=omp_nthreads)
 
     # HMC on the BOLD
     bold_hmc_wf = init_bold_hmc_wf(name='bold_hmc_wf',
@@ -149,8 +289,7 @@ def init_func_preproc_wf(bold_file, ignore, freesurfer,
                                    freesurfer=freesurfer,
                                    bold2t1w_dof=bold2t1w_dof,
                                    bold_file_size_gb=bold_file_size_gb,
-                                   output_spaces=output_spaces,
-                                   output_dir=output_dir,
+                                   use_compression=not low_mem,
                                    use_fieldwarp=(fmaps is not None or use_syn))
 
     # get confounds
@@ -163,8 +302,10 @@ def init_func_preproc_wf(bold_file, ignore, freesurfer,
     bold_confounds_wf.get_node('inputnode').inputs.t1_transform_flags = [False]
 
     workflow.connect([
-        (inputnode, validate, [('bold_file', 'in_file')]),
-        (validate, bold_hmc_wf, [('out_file', 'inputnode.bold_file')]),
+        (inputnode, bold_reference_wf, [('bold_file', 'inputnode.bold_file')]),
+        (bold_reference_wf, bold_hmc_wf, [('outputnode.bold_file', 'inputnode.bold_file'),
+                                          ('outputnode.raw_ref_image', 'inputnode.raw_ref_image'),
+                                          ('outputnode.skip_vols', 'inputnode.skip_vols')]),
         (inputnode, bold_reg_wf, [('bold_file', 'inputnode.name_source'),
                                   ('t1_preproc', 'inputnode.t1_preproc'),
                                   ('t1_brain', 'inputnode.t1_brain'),
@@ -175,14 +316,16 @@ def init_func_preproc_wf(bold_file, ignore, freesurfer,
                                   ('subject_id', 'inputnode.subject_id'),
                                   ('fs_2_t1_transform', 'inputnode.fs_2_t1_transform')
                                   ]),
-        (inputnode, bold_confounds_wf, [('t1_tpms', 'inputnode.t1_tpms')]),
+        (inputnode, bold_confounds_wf, [('t1_tpms', 'inputnode.t1_tpms'),
+                                        ('t1_mask', 'inputnode.t1_mask')]),
         (bold_hmc_wf, bold_reg_wf, [('outputnode.bold_split', 'inputnode.bold_split'),
                                     ('outputnode.xforms', 'inputnode.hmc_xforms')]),
         (bold_hmc_wf, bold_confounds_wf, [('outputnode.movpar_file', 'inputnode.movpar_file')]),
         (bold_reg_wf, bold_confounds_wf, [
-            ('outputnode.bold_t1', 'inputnode.fmri_file'),
-            ('outputnode.bold_mask_t1', 'inputnode.bold_mask')]),
-        (validate, func_reports_wf, [('out_report', 'inputnode.validation_report')]),
+            ('outputnode.bold_t1', 'inputnode.bold_t1'),
+            ('outputnode.bold_mask_t1', 'inputnode.bold_mask_t1')]),
+        (bold_reference_wf, func_reports_wf, [
+            ('outputnode.validation_report', 'inputnode.validation_report')]),
         (bold_reg_wf, func_reports_wf, [
             ('outputnode.out_report', 'inputnode.bold_reg_report'),
         ]),
@@ -254,7 +397,7 @@ def init_func_preproc_wf(bold_file, ignore, freesurfer,
         # Connections and workflows common for all types of fieldmaps
         workflow.connect([
             (inputnode, sdc_unwarp_wf, [('bold_file', 'inputnode.name_source')]),
-            (bold_hmc_wf, sdc_unwarp_wf, [
+            (bold_reference_wf, sdc_unwarp_wf, [
                 ('outputnode.ref_image', 'inputnode.in_reference'),
                 ('outputnode.ref_image_brain', 'inputnode.in_reference_brain'),
                 ('outputnode.bold_mask', 'inputnode.in_mask')]),
@@ -273,7 +416,7 @@ def init_func_preproc_wf(bold_file, ignore, freesurfer,
             (inputnode, fmap_unwarp_report_wf, [
                 ('t1_seg', 'inputnode.in_seg'),
                 ('bold_file', 'inputnode.name_source')]),
-            (bold_hmc_wf, fmap_unwarp_report_wf, [
+            (bold_reference_wf, fmap_unwarp_report_wf, [
                 ('outputnode.ref_image', 'inputnode.in_pre')]),
             (sdc_unwarp_wf, fmap_unwarp_report_wf, [
                 ('outputnode.out_reference', 'inputnode.in_post')]),
@@ -285,10 +428,11 @@ def init_func_preproc_wf(bold_file, ignore, freesurfer,
                     'for dataset %s.', bold_file)
         summary.inputs.distortion_correction = 'None'
         workflow.connect([
-            (bold_hmc_wf, func_reports_wf, [
+            (bold_reference_wf, func_reports_wf, [
                 ('outputnode.bold_mask_report', 'inputnode.bold_mask_report')]),
-            (bold_hmc_wf, bold_reg_wf, [('outputnode.ref_image_brain', 'inputnode.ref_bold_brain'),
-                                        ('outputnode.bold_mask', 'inputnode.ref_bold_mask')]),
+            (bold_reference_wf, bold_reg_wf, [
+                ('outputnode.ref_image_brain', 'inputnode.ref_bold_brain'),
+                ('outputnode.bold_mask', 'inputnode.ref_bold_mask')]),
         ])
 
     if use_syn:
@@ -303,7 +447,7 @@ def init_func_preproc_wf(bold_file, ignore, freesurfer,
                 ('t1_2_mni_reverse_transform', 'inputnode.t1_2_mni_reverse_transform'),
                 ('subjects_dir', 'inputnode.subjects_dir'),
                 ('subject_id', 'inputnode.subject_id')]),
-            (bold_hmc_wf, nonlinear_sdc_wf, [
+            (bold_reference_wf, nonlinear_sdc_wf, [
                 ('outputnode.ref_image_brain', 'inputnode.bold_ref')]),
             (nonlinear_sdc_wf, func_reports_wf, [
                 ('outputnode.out_warp_report', 'inputnode.syn_sdc_report')]),
@@ -325,11 +469,13 @@ def init_func_preproc_wf(bold_file, ignore, freesurfer,
 
     if 'template' in output_spaces:
         # Apply transforms in 1 shot
+        # Only use uncompressed output if AROMA is to be run
         bold_mni_trans_wf = init_bold_mni_trans_wf(
-            output_dir=output_dir,
             template=template,
             bold_file_size_gb=bold_file_size_gb,
             output_grid_ref=output_grid_ref,
+            use_compression=not (low_mem and use_aroma),
+            use_fieldwarp=(fmaps is not None or use_syn),
             name='bold_mni_trans_wf'
         )
 
@@ -363,7 +509,7 @@ def init_func_preproc_wf(bold_file, ignore, freesurfer,
             ])
         else:
             workflow.connect([
-                (bold_hmc_wf, bold_mni_trans_wf, [
+                (bold_reference_wf, bold_mni_trans_wf, [
                     ('outputnode.bold_mask', 'inputnode.bold_mask')]),
             ])
 
@@ -381,20 +527,149 @@ def init_func_preproc_wf(bold_file, ignore, freesurfer,
     return workflow
 
 
+def init_bold_reference_wf(omp_nthreads, bold_file=None, name='bold_reference_wf'):
+    """
+    This workflow generates reference BOLD images for a series
+
+    The raw reference image is the target of :abbr:`HMC (head motion correction)`, and a
+    contrast-enhanced reference is the subject of distortion correction, as well as
+    boundary-based registration to T1w and template spaces.
+
+    .. workflow::
+        :graph2use: orig
+        :simple_form: yes
+
+        from fmriprep.workflows.bold import init_bold_reference_wf
+        wf = init_bold_reference_wf(omp_nthreads=1)
+
+    Parameters
+
+        bold_file : str
+            BOLD series NIfTI file
+        omp_nthreads : int
+            Maximum number of threads an individual process may use
+        name : str
+            Name of workflow (default: ``bold_reference_wf``)
+
+    Inputs
+
+        bold_file
+            BOLD series NIfTI file
+
+    Outputs
+
+        bold_file
+            Validated BOLD series NIfTI file
+        raw_ref_image
+            Reference image to which BOLD series is motion corrected
+        skip_vols
+            Number of non-steady-state volumes detected at beginning of ``bold_file``
+        ref_image
+            Contrast-enhanced reference image
+        ref_image_brain
+            Skull-stripped reference image
+        bold_mask
+            Skull-stripping mask of reference image
+        bold_mask_report
+            Reportlet showing quality of masking
+        validation_report
+            HTML reportlet indicating whether ``bold_file`` had a valid affine
+
+    """
+    workflow = pe.Workflow(name=name)
+
+    inputnode = pe.Node(niu.IdentityInterface(fields=['bold_file']), name='inputnode')
+    outputnode = pe.Node(
+        niu.IdentityInterface(fields=['bold_file', 'raw_ref_image', 'skip_vols', 'ref_image',
+                                      'ref_image_brain', 'bold_mask', 'bold_mask_report',
+                                      'validation_report']),
+        name='outputnode')
+
+    # Simplify manually setting input image
+    if bold_file is not None:
+        inputnode.inputs.bold_file = bold_file
+
+    validate = pe.Node(ValidateImage(), name='validate', mem_gb=DEFAULT_MEMORY_MIN_GB,
+                       run_without_submitting=True)
+    gen_ref = pe.Node(EstimateReferenceImage(), name="gen_ref",
+                      mem_gb=1)  # OE: 128x128x128x50 * 64 / 8 ~ 900MB.
+    enhance_and_skullstrip_bold_wf = init_enhance_and_skullstrip_bold_wf(omp_nthreads=omp_nthreads)
+
+    workflow.connect([
+        (inputnode, validate, [('bold_file', 'in_file')]),
+        (validate, gen_ref, [('out_file', 'in_file')]),
+        (gen_ref, enhance_and_skullstrip_bold_wf, [('ref_image', 'inputnode.in_file')]),
+        (validate, outputnode, [('out_file', 'bold_file'),
+                                ('out_report', 'validation_report')]),
+        (gen_ref, outputnode, [('ref_image', 'raw_ref_image'),
+                               ('n_volumes_to_discard', 'skip_vols')]),
+        (enhance_and_skullstrip_bold_wf, outputnode, [
+            ('outputnode.bias_corrected_file', 'ref_image'),
+            ('outputnode.mask_file', 'bold_mask'),
+            ('outputnode.out_report', 'bold_mask_report'),
+            ('outputnode.skull_stripped_file', 'ref_image_brain')]),
+        ])
+
+    return workflow
+
+
 # pylint: disable=R0914
 def init_bold_hmc_wf(metadata, bold_file_size_gb, ignore,
                      name='bold_hmc_wf', omp_nthreads=1):
     """
-    Performs :abbr:`HMC (head motion correction)` over the input
+    This workflow performs :abbr:`HMC (head motion correction)` over the input
     :abbr:`BOLD (blood-oxygen-level dependent)` image.
+
+    .. workflow::
+        :graph2use: orig
+        :simple_form: yes
+
+        from fmriprep.workflows.bold import init_bold_hmc_wf
+        wf = init_bold_hmc_wf(
+            metadata={"RepetitionTime": 2.0,
+                      "SliceTiming": [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]},
+                      ignore=[],
+                      bold_file_size_gb=3)
+
+    Parameters
+
+        metadata : dict
+            BIDS metadata for BOLD file
+        bold_file_size_gb : float
+            Size of BOLD file in GB
+        ignore : list
+            Preprocessing steps to skip - if "slicetiming" is included, skip
+            slice-timing correction
+        name : str
+            Name of workflow (default: ``bold_hmc_wf``)
+        omp_nthreads : int
+            Maximum number of threads an individual process may use
+
+    Inputs
+
+        bold_file
+            BOLD series NIfTI file
+        raw_ref_image
+            Reference image to which BOLD series is motion corrected
+        skip_vols
+            Number of non-steady-state volumes detected at beginning of ``bold_file``
+
+    Outputs
+
+        bold_split
+            Individual 3D volumes, not motion corrected
+        xforms
+            List of affine transforms aligning each volume to ``ref_image`` in ITK format
+        movpar_file
+            MCFLIRT motion parameters, normalized to SPM format (X, Y, Z, Rx, Ry, Rz)
+
     """
     workflow = pe.Workflow(name=name)
-    inputnode = pe.Node(niu.IdentityInterface(fields=['bold_file']),
+    inputnode = pe.Node(niu.IdentityInterface(fields=['bold_file', 'raw_ref_image', 'skip_vols']),
                         name='inputnode')
-    outputnode = pe.Node(niu.IdentityInterface(
-        fields=['xforms', 'bold_hmc', 'bold_split', 'bold_mask', 'ref_image',
-                'ref_image_brain', 'movpar_file', 'n_volumes_to_discard',
-                'bold_mask_report']), name='outputnode')
+    outputnode = pe.Node(
+        niu.IdentityInterface(fields=['bold_split', 'xforms', 'movpar_file']),
+        name='outputnode')
 
     normalize_motion = pe.Node(NormalizeMotionParams(format='FSL'),
                                name="normalize_motion",
@@ -407,23 +682,6 @@ def init_bold_hmc_wf(metadata, bold_file_size_gb, ignore,
     hcm2itk = pe.MapNode(c3.C3dAffineTool(fsl2ras=True, itk_transform=True),
                          iterfield=['transform_file'], name='hcm2itk',
                          mem_gb=0.05)
-
-    enhance_and_skullstrip_bold_wf = init_enhance_and_skullstrip_bold_wf(
-        omp_nthreads=omp_nthreads)
-
-    gen_ref = pe.Node(EstimateReferenceImage(), name="gen_ref",
-                      mem_gb=1)  # OE: 128x128x128x50 * 64 / 8 ~ 900MB.
-
-    workflow.connect([
-        (inputnode, gen_ref, [('bold_file', 'in_file')]),
-        (gen_ref, enhance_and_skullstrip_bold_wf, [('ref_image', 'inputnode.in_file')]),
-        (gen_ref, hmc, [('ref_image', 'ref_file')]),
-        (enhance_and_skullstrip_bold_wf, outputnode, [
-            ('outputnode.bias_corrected_file', 'ref_image'),
-            ('outputnode.mask_file', 'bold_mask'),
-            ('outputnode.out_report', 'bold_mask_report'),
-            ('outputnode.skull_stripped_file', 'ref_image_brain')]),
-    ])
 
     split = pe.Node(fsl.Split(dimension='t'), name='split',
                     mem_gb=bold_file_size_gb * 3)
@@ -456,38 +714,122 @@ def init_bold_hmc_wf(metadata, bold_file_size_gb, ignore,
             return "@" + x
 
         workflow.connect([
-            (inputnode, slice_timing_correction, [('bold_file', 'in_file')]),
-            (gen_ref, slice_timing_correction, [('n_volumes_to_discard', 'ignore')]),
+            (inputnode, slice_timing_correction, [('bold_file', 'in_file'),
+                                                  ('skip_vols', 'ignore')]),
             (create_custom_slice_timing_file, slice_timing_correction, [
                 (('out', _prefix_at), 'tpattern')]),
-            (slice_timing_correction, hmc, [('out_file', 'in_file')])
+            (slice_timing_correction, hmc, [('out_file', 'in_file')]),
+            (slice_timing_correction, split, [('out_file', 'in_file')]),
         ])
 
     else:
         workflow.connect([
-            (inputnode, hmc, [('bold_file', 'in_file')])
+            (inputnode, hmc, [('bold_file', 'in_file')]),
+            (inputnode, split, [('bold_file', 'in_file')]),
         ])
 
     workflow.connect([
+        (inputnode, hmc, [('raw_ref_image', 'ref_file')]),
+        (inputnode, hcm2itk, [('raw_ref_image', 'source_file'),
+                              ('raw_ref_image', 'reference_file')]),
         (hmc, hcm2itk, [('mat_file', 'transform_file')]),
-        (gen_ref, hcm2itk, [('ref_image', 'source_file'),
-                            ('ref_image', 'reference_file')]),
-        (hcm2itk, outputnode, [('itk_transform', 'xforms')]),
         (hmc, normalize_motion, [('par_file', 'in_file')]),
+        (hcm2itk, outputnode, [('itk_transform', 'xforms')]),
         (normalize_motion, outputnode, [('out_file', 'movpar_file')]),
-        (inputnode, split, [('bold_file', 'in_file')]),
         (split, outputnode, [('out_files', 'bold_split')]),
     ])
 
     return workflow
 
 
-def init_bold_reg_wf(freesurfer, bold2t1w_dof,
-                     bold_file_size_gb, output_spaces, output_dir,
-                     name='bold_reg_wf', use_fieldwarp=False):
+def init_bold_reg_wf(freesurfer, bold2t1w_dof, bold_file_size_gb,
+                     name='bold_reg_wf', use_compression=True,
+                     use_fieldwarp=False):
     """
-    Uses FSL FLIRT with the BBR cost function to find the transform that
-    maps the BOLD space into the T1-space
+    This workflow registers the reference BOLD image to T1-space, using a
+    boundary-based registration (BBR) cost function.
+
+    If FreeSurfer-based preprocessing is enabled, the ``bbregister`` utility
+    is used to align the BOLD images to the reconstructed subject, and the
+    resulting transform is adjusted to target the T1 space.
+    If FreeSurfer-based preprocessing is disabled, FSL FLIRT is used with the
+    BBR cost function to directly target the T1 space.
+
+    .. workflow::
+        :graph2use: orig
+        :simple_form: yes
+
+        from fmriprep.workflows.bold import init_bold_reg_wf
+        wf = init_bold_reg_wf(freesurfer=True,
+                              bold_file_size_gb=3,
+                              bold2t1w_dof=9)
+
+    Parameters
+
+        freesurfer : bool
+            Enable FreeSurfer functional registration (bbregister)
+        bold2t1w_dof : 6, 9 or 12
+            Degrees-of-freedom for BOLD-T1w registration
+        bold_file_size_gb : float
+            Size of BOLD file in GB
+        name : str
+            Name of workflow (default: ``bold_reg_wf``)
+        use_compression : bool
+            Save registered BOLD series as ``.nii.gz``
+        use_fieldwarp : bool
+            Include SDC warp in single-shot transform from BOLD to T1
+
+    Inputs
+
+        name_source
+            BOLD series NIfTI file
+            Used to recover original information lost during processing
+        ref_bold_brain
+            Reference image to which BOLD series is aligned
+            If ``fieldwarp == True``, ``ref_bold_brain`` should be unwarped
+        ref_bold_mask
+            Skull-stripping mask of reference image
+        t1_preproc
+            Bias-corrected structural template image
+        t1_brain
+            Skull-stripped ``t1_preproc``
+        t1_mask
+            Mask of the skull-stripped template image
+        t1_seg
+            Segmentation of preprocessed structural image, including
+            gray-matter (GM), white-matter (WM) and cerebrospinal fluid (CSF)
+        bold_split
+            Individual 3D BOLD volumes, not motion corrected
+        hmc_xforms
+            List of affine transforms aligning each volume to ``ref_image`` in ITK format
+        subjects_dir
+            FreeSurfer SUBJECTS_DIR
+        subject_id
+            FreeSurfer subject ID
+        fs_2_t1_transform
+            Affine transform from FreeSurfer subject space to T1w space
+        fieldwarp
+            a :abbr:`DFM (displacements field map)` in ITK format
+
+    Outputs
+
+        mat_bold_to_t1
+            Affine transform from ``ref_bold_brain`` to T1 space (FSL format)
+        mat_t1_to_bold
+            Affine transform from T1 space to BOLD space (FSL format)
+        itk_bold_to_t1
+            Affine transform from ``ref_bold_brain`` to T1 space (ITK format)
+        itk_t1_to_bold
+            Affine transform from T1 space to BOLD space (ITK format)
+        bold_t1
+            Motion-corrected BOLD series in T1 space
+        bold_mask_t1
+            BOLD mask in T1 space
+        fs_reg_file
+            Affine transform from ``ref_bold_brain`` to T1 space (FreeSurfer ``reg`` format)
+        out_report
+            Reportlet visualizing quality of registration
+
     """
     workflow = pe.Workflow(name=name)
     inputnode = pe.Node(
@@ -578,7 +920,7 @@ def init_bold_reg_wf(freesurfer, bold2t1w_dof,
             (inputnode, merge_transforms, [('hmc_xforms', 'in2')])
         ])
 
-    merge = pe.Node(Merge(), name='merge', mem_gb=bold_file_size_gb * 3)
+    merge = pe.Node(Merge(compress=use_compression), name='merge', mem_gb=bold_file_size_gb * 3)
 
     bold_to_t1w_transform = pe.MapNode(
         ants.ApplyTransforms(interpolation="LanczosWindowedSinc",
@@ -602,14 +944,45 @@ def init_bold_reg_wf(freesurfer, bold2t1w_dof,
 
 
 def init_bold_surf_wf(output_spaces, name='bold_surf_wf'):
-    """ Sample functional images to FreeSurfer surfaces
+    """
+    This workflow samples functional images to FreeSurfer surfaces
 
     For each vertex, the cortical ribbon is sampled at six points (spaced 20% of thickness apart)
     and averaged.
 
     Outputs are in GIFTI format.
 
-    output_spaces : set of structural spaces to sample functional series to
+    .. workflow::
+        :graph2use: colored
+        :simple_form: yes
+
+        from fmriprep.workflows.bold import init_bold_surf_wf
+        wf = init_bold_surf_wf(output_spaces=['T1w', 'fsnative',
+                                             'template', 'fsaverage5'])
+
+    Parameters
+
+        output_spaces : list
+            List of output spaces functional images are to be resampled to
+            Target spaces beginning with ``fs`` will be selected for resampling,
+            such as ``fsaverage`` or related template spaces
+            If the list contains ``fsnative``, images will be resampled to the
+            individual subject's native surface
+
+    Inputs
+
+        source_file
+            Motion-corrected BOLD series in T1 space
+        subjects_dir
+            FreeSurfer SUBJECTS_DIR
+        subject_id
+            FreeSurfer subject ID
+
+    Outputs
+
+        surfaces
+            BOLD series, resampled to FreeSurfer surfaces
+
     """
     workflow = pe.Workflow(name=name)
     inputnode = pe.Node(
@@ -666,10 +1039,64 @@ def init_bold_surf_wf(output_spaces, name='bold_surf_wf'):
     return workflow
 
 
-def init_bold_mni_trans_wf(output_dir, template, bold_file_size_gb,
+def init_bold_mni_trans_wf(template, bold_file_size_gb,
                            name='bold_mni_trans_wf',
-                           output_grid_ref=None,
+                           output_grid_ref=None, use_compression=True,
                            use_fieldwarp=False):
+    """
+    This workflow samples functional images to the MNI template in a "single shot"
+    from the original BOLD series.
+
+    .. workflow::
+        :graph2use: colored
+        :simple_form: yes
+
+        from fmriprep.workflows.bold import init_bold_mni_trans_wf
+        wf = init_bold_mni_trans_wf(template='MNI152NLin2009cAsym',
+                                    bold_file_size_gb=3,
+                                    output_grid_ref=None)
+
+    Parameters
+
+        template : str
+            Name of template targeted by `'template'` output space
+        bold_file_size_gb : float
+            Size of BOLD file in GB
+        name : str
+            Name of workflow (default: ``bold_mni_trans_wf``)
+        output_grid_ref : str or None
+            Path of custom reference image for normalization
+        use_compression : bool
+            Save registered BOLD series as ``.nii.gz``
+        use_fieldwarp : bool
+            Include SDC warp in single-shot transform from BOLD to MNI
+
+    Inputs
+
+        itk_bold_to_t1
+            Affine transform from ``ref_bold_brain`` to T1 space (ITK format)
+        t1_2_mni_forward_transform
+            ANTs-compatible affine-and-warp transform file
+        bold_split
+            Individual 3D volumes, not motion corrected
+        bold_mask
+            Skull-stripping mask of reference image
+        name_source
+            BOLD series NIfTI file
+            Used to recover original information lost during processing
+        hmc_xforms
+            List of affine transforms aligning each volume to ``ref_image`` in ITK format
+        fieldwarp
+            a :abbr:`DFM (displacements field map)` in ITK format
+
+    Outputs
+
+        bold_mni
+            BOLD series, resampled to template space
+        bold_mask_mni
+            BOLD series mask in template space
+
+    """
     workflow = pe.Workflow(name=name)
     inputnode = pe.Node(
         niu.IdentityInterface(fields=[
@@ -733,7 +1160,7 @@ def init_bold_mni_trans_wf(output_dir, template, bold_file_size_gb,
         (inputnode, mask_mni_tfm, [('bold_mask', 'input_image')])
     ])
 
-    merge = pe.Node(Merge(), name='merge',
+    merge = pe.Node(Merge(compress=use_compression), name='merge',
                     mem_gb=bold_file_size_gb * 3)
     bold_to_mni_transform = pe.MapNode(
         ants.ApplyTransforms(interpolation="LanczosWindowedSinc",
@@ -1010,6 +1437,37 @@ def init_nonlinear_sdc_wf(bold_file, layout, freesurfer, bold2t1w_dof,
 
 
 def init_fmap_unwarp_report_wf(reportlets_dir, name='fmap_unwarp_report_wf'):
+    """
+    This workflow generates and saves a reportlet showing the effect of fieldmap
+    unwarping a BOLD image.
+
+    .. workflow::
+        :graph2use: orig
+        :simple_form: yes
+
+        from fmriprep.workflows.anatomical import init_fmap_unwarp_report_wf
+        wf = init_fmap_unwarp_report_wf(reportlets_dir='.')
+
+    Parameters
+
+        reportlets_dir : str
+            Directory in which to save reportlets
+        name : str, optional
+            Workflow name (default: fmap_unwarp_report_wf)
+
+    Inputs
+
+        in_pre
+            Reference image, before unwarping
+        in_post
+            Reference image, after unwarping
+        in_seg
+            Segmentation of preprocessed structural image, including
+            gray-matter (GM), white-matter (WM) and cerebrospinal fluid (CSF)
+        in_xfm
+            Affine transform from T1 space to BOLD space (ITK format)
+
+    """
     workflow = pe.Workflow(name=name)
 
     inputnode = pe.Node(niu.IdentityInterface(
@@ -1047,6 +1505,9 @@ def init_fmap_unwarp_report_wf(reportlets_dir, name='fmap_unwarp_report_wf'):
 
 
 def init_func_reports_wf(reportlets_dir, freesurfer, use_aroma, use_syn, name='func_reports_wf'):
+    """
+    Set up a battery of datasinks to store reports in the right location
+    """
     workflow = pe.Workflow(name=name)
 
     inputnode = pe.Node(
@@ -1136,6 +1597,9 @@ def init_func_reports_wf(reportlets_dir, freesurfer, use_aroma, use_syn, name='f
 
 def init_func_derivatives_wf(output_dir, output_spaces, template, freesurfer,
                              use_aroma, name='func_derivatives_wf'):
+    """
+    Set up a battery of datasinks to store derivatives in the right location
+    """
     workflow = pe.Workflow(name=name)
 
     inputnode = pe.Node(
